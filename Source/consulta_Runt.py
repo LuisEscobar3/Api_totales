@@ -47,4 +47,3 @@ def ConsultaRunt(placa: str) -> Optional[Dict[str, Any]]:
         print(response.text)
         return None
 
-print(ConsultaRunt("PAQ639"))

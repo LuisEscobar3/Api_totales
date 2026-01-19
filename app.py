@@ -27,7 +27,8 @@ logger = logging.getLogger("api")
 # IMPORTS de tus módulos
 # =========================
 from Source.consulta_Runt import ConsultaRunt
-from Source.bot import bot_buscar_simit  # devuelve True/False
+# Se eliminó la importación de Source.bot (SIMIT)
+
 from Source.Variables import (
     Consulta_prenda,
     Consulta_propietarios,
@@ -68,7 +69,7 @@ class ConsultaInput(BaseModel):
 
 class ConsultaResponse(BaseModel):
     placa: str
-    multas_vehiculo: bool
+    # multas_vehiculo: bool  <-- ELIMINADO (era SIMIT)
     limitaciones_propiedad: bool
     prenda: bool
     total_propietarios: int
@@ -129,22 +130,19 @@ async def consultar_vehiculo(payload: ConsultaInput):
         placa, payload.numero_documento, payload.nombre_propietario
     )
 
-    # 1) Consultas en paralelo (tus funciones son síncronas)
+    # 1) Consulta SOLO RUNT (mantenemos to_thread para no bloquear el loop)
     try:
-        runt_json, simit_json = await asyncio.gather(
-            asyncio.to_thread(ConsultaRunt, placa),
-            asyncio.to_thread(bot_buscar_simit, placa),
-        )
+        runt_json = await asyncio.to_thread(ConsultaRunt, placa)
+
     except Exception as e:
         f, ln, fn = where(e)
-        logger.error("❌ Error consultando externos at %s:%d in %s() placa=%s :: %s", f, ln, fn, placa, str(e))
+        logger.error("❌ Error consultando RUNT at %s:%d in %s() placa=%s :: %s", f, ln, fn, placa, str(e))
         raise HTTPException(status_code=502, detail={
-            "error": "Error consultando servicios externos",
+            "error": "Error consultando servicios externos (RUNT)",
             "file": f, "line": ln, "function": fn, "message": str(e)
         })
 
     logger.debug("🧩 RUNT tipo=%s keys=%s", type(runt_json).__name__, _keys(runt_json))
-    logger.debug("🧩 SIMIT tipo=%s keys=%s", type(simit_json).__name__, _keys(simit_json))
 
     # 2) Validación mínima de RUNT (debe ser dict)
     if not isinstance(runt_json, dict):
@@ -154,10 +152,7 @@ async def consultar_vehiculo(payload: ConsultaInput):
             "file": f, "line": ln, "function": fn
         })
 
-    # 3) SIMIT puede ser bool; normalizamos a dict (tal como ya usas)
-    simit_raw = bool(simit_json)  # True/False
-
-    # 4) Post-proceso con tus funciones (sin agregar campos nuevos)
+    # 3) Post-proceso con tus funciones
     try:
         limitaciones = bool(limitaciones_propiedad(runt_json))
         prenda = bool(Consulta_prenda(runt_json))
@@ -165,12 +160,7 @@ async def consultar_vehiculo(payload: ConsultaInput):
 
         propietario_valido = None
         if payload.numero_documento and payload.nombre_propietario:
-            print(validar_propietario(
-                runt_json,
-                numero_documento=payload.numero_documento,
-                nombre=payload.nombre_propietario,
-            ))
-
+            # print(validar_propietario(...)) # Comentado para limpiar logs
             propietario_valido = bool(
                 validar_propietario(
                     runt_json,
@@ -179,10 +169,9 @@ async def consultar_vehiculo(payload: ConsultaInput):
                 )
             )
 
-        # === SOLO lo que ya devuelves ===
+        # === SOLO lo que ya devuelves (sin multas_vehiculo) ===
         respuesta = ConsultaResponse(
             placa=placa,
-            multas_vehiculo=simit_json,
             limitaciones_propiedad=limitaciones,
             prenda=prenda,
             total_propietarios=n_prop,
