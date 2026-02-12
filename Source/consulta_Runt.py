@@ -46,4 +46,3 @@ def ConsultaRunt(placa: str) -> Optional[Dict[str, Any]]:
         print("⚠️ La respuesta no es un JSON válido.")
         print(response.text)
         return None
-

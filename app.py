@@ -74,7 +74,7 @@ class ConsultaResponse(BaseModel):
     prenda: bool
     total_propietarios: int
     propietario_valido: Optional[bool] = None
-
+    organismoTransito: str
 
 # =========================
 # FASTAPI APP
@@ -159,8 +159,11 @@ async def consultar_vehiculo(payload: ConsultaInput):
         n_prop = int(Consulta_propietarios(runt_json))
 
         propietario_valido = None
+        organismo_Transito = runt_json.get("organismoTransito")
         if payload.numero_documento and payload.nombre_propietario:
             # print(validar_propietario(...)) # Comentado para limpiar logs
+
+
             propietario_valido = bool(
                 validar_propietario(
                     runt_json,
@@ -176,6 +179,7 @@ async def consultar_vehiculo(payload: ConsultaInput):
             prenda=prenda,
             total_propietarios=n_prop,
             propietario_valido=propietario_valido,
+            organismoTransito = organismo_Transito
         )
 
         logger.debug("✅ Respuesta armada para placa=%s", placa)
